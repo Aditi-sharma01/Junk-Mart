@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, engine
 from app.models import user, waste_item, group
 from app.api import waste, user  # Import your route handlers
@@ -8,6 +9,14 @@ Base.metadata.create_all(bind=engine)
 
 # Create the FastAPI app
 app = FastAPI(title="SmartRecycle API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8080", "http://127.0.0.1:8080"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Register your routes
 app.include_router(waste.router, prefix="/api", tags=["Waste"])

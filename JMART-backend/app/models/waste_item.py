@@ -7,3 +7,4 @@ class WasteItem(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     description = Column(String)
     image_url = Column(String)
+    category = Column(String)

@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.schemas import WasteUpload
+from app.schemas import WasteUpload, WasteItemOut
 from app.models.waste_item import WasteItem
+from typing import List
+from fastapi import Response
 
 router = APIRouter()
 
@@ -19,9 +21,15 @@ def upload_waste(data: WasteUpload, db: Session = Depends(get_db)):
     waste = WasteItem(
         user_id=data.user_id,
         description=data.description,
-        image_url=data.image_url
+        image_url=data.image_url,
+        category=data.category
     )
     db.add(waste)
     db.commit()
     db.refresh(waste)
     return {"msg": "Waste uploaded", "id": waste.id}
+
+@router.get("/listings", response_model=List[WasteItemOut])
+def get_waste_listings(db: Session = Depends(get_db)):
+    items = db.query(WasteItem).all()
+    return items
