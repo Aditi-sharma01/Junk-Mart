@@ -5,6 +5,7 @@ declare global {
   interface Window {
     gapi: any;
     google: any;
+    cloudinary: any;
   }
 }
 
@@ -59,89 +60,42 @@ const loadGapiScript = () => {
 };
 
 const Upload = () => {
-  const { register, handleSubmit, control, reset, formState: { errors } } = useForm();
+  const { register, handleSubmit, control, reset, setValue, formState: { errors } } = useForm();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const accessTokenRef = useRef<string | null>(null);
-  const tokenClientRef = useRef<any>(null);
 
-  // Initialize GIS token client
-  const initGis = async () => {
-    await loadGisScript();
-    tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID,
-      scope: SCOPES,
-      callback: (tokenResponse: any) => {
-        accessTokenRef.current = tokenResponse.access_token;
-      },
-    });
-  };
-
-  // Upload file to Google Drive using GIS access token
-  const uploadFileToDrive = async (file: File) => {
-    if (!accessTokenRef.current) {
-      await initGis();
-      await new Promise((resolve) => {
-        tokenClientRef.current.callback = (tokenResponse: any) => {
-          accessTokenRef.current = tokenResponse.access_token;
-          resolve(null);
-        };
-        tokenClientRef.current.requestAccessToken();
-      });
+  // Cloudinary widget open function
+  const openCloudinaryWidget = (callback: (url: string) => void) => {
+    if (!window.cloudinary) {
+      const script = document.createElement('script');
+      script.src = 'https://widget.cloudinary.com/v2.0/global/all.js';
+      script.onload = () => openCloudinaryWidget(callback);
+      document.body.appendChild(script);
+      return;
     }
-    await loadGapiScript();
-    await window.gapi.client.init({}); // No need for clientId here
-    const accessToken = accessTokenRef.current;
-    const metadata = {
-      name: file.name,
-      mimeType: file.type,
-    };
-    const form = new FormData();
-    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-    form.append('file', file);
-    // Upload file
-    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
-      method: 'POST',
-      headers: new Headers({ Authorization: 'Bearer ' + accessToken }),
-      body: form,
-    });
-    const data = await res.json();
-    // Set file permission to anyone with the link
-    await fetch(`https://www.googleapis.com/drive/v3/files/${data.id}/permissions`, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer ' + accessToken,
-        'Content-Type': 'application/json',
+    window.cloudinary.openUploadWidget(
+      {
+        cloudName: 'df5hqpfbu', // <-- REPLACE with your Cloudinary cloud name
+        uploadPreset: 'unsigned_preset', // <-- REPLACE with your unsigned upload preset
+        sources: ['local', 'url', 'camera'],
+        multiple: false,
+        cropping: false,
+        folder: 'waste_items',
       },
-      body: JSON.stringify({ role: 'reader', type: 'anyone' }),
-    });
-    // Get shareable link
-    const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${data.id}?fields=webContentLink,webViewLink`, {
-      headers: { Authorization: 'Bearer ' + accessToken },
-    });
-    const fileData = await fileRes.json();
-    return fileData.webViewLink || fileData.webContentLink;
-  };
-
-  const onImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setImagePreview(reader.result as string);
-      reader.readAsDataURL(file);
-    } else {
-      setImagePreview(null);
-    }
+      (error: any, result: any) => {
+        if (!error && result && result.event === 'success') {
+          callback(result.info.secure_url);
+          setImagePreview(result.info.secure_url);
+        }
+      }
+    );
   };
 
   const onSubmit = async (data: any) => {
     setError(null);
     setUploading(true);
     try {
-      const file = data.image[0];
-      // Upload to Google Drive
-      const imageUrl = await uploadFileToDrive(file);
       // TODO: Replace with actual user_id logic
       const user_id = 1;
       // Send to backend
@@ -151,7 +105,7 @@ const Upload = () => {
         body: JSON.stringify({
           user_id,
           description: data.description,
-          image_url: imageUrl,
+          image_url: data.image_url, // Now using Cloudinary URL
           category: data.category,
         }),
       });
@@ -180,22 +134,20 @@ const Upload = () => {
           <CardContent>
             <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
               <div>
-                <Label htmlFor="image">Image</Label>
-                <Input
-                  id="image"
-                  type="file"
-                  accept="image/*"
-                  {...register('image', { required: 'Image is required' })}
-                  onChange={e => {
-                    register('image').onChange(e);
-                    onImageChange(e);
-                  }}
+                <Label htmlFor="image_url">Image</Label>
+                <Button
+                  type="button"
+                  onClick={() => openCloudinaryWidget((url) => setValue('image_url', url))}
                   disabled={uploading}
-                />
-                {errors.image && <p className="text-red-500 text-sm mt-1">{errors.image.message as string}</p>}
+                  className="mb-2"
+                >
+                  Upload Image
+                </Button>
+                {errors.image_url && <p className="text-red-500 text-sm mt-1">{errors.image_url.message as string}</p>}
                 {imagePreview && (
                   <img src={imagePreview} alt="Preview" className="mt-2 max-h-48 rounded" />
                 )}
+                <input type="hidden" {...register('image_url', { required: 'Image is required' })} />
               </div>
               <div>
                 <Label htmlFor="description">Description</Label>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getGoogleDriveImageSrc } from '../lib/utils';
 
 interface WasteItem {
   id: number;
@@ -47,28 +48,32 @@ const Listings = () => {
           <p className="text-center text-gray-500">No waste items found.</p>
         ) : (
           <div className="grid gap-6">
-            {items.map(item => (
-              <Card key={item.id}>
-                <CardHeader>
-                  <CardTitle>Waste Item #{item.id}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col md:flex-row gap-4 items-center">
-                    <img
-                      src={item.image_url}
-                      alt={item.description}
-                      className="w-32 h-32 object-cover rounded border"
-                      onError={e => (e.currentTarget.src = 'https://via.placeholder.com/128?text=No+Image')}
-                    />
-                    <div className="flex-1">
-                      <p className="font-semibold">Description:</p>
-                      <p className="mb-2">{item.description}</p>
-                      <p className="text-sm text-gray-500">User ID: {item.user_id}</p>
+            {items.map(item => {
+              const convertedUrl = getGoogleDriveImageSrc(item.image_url);
+              console.log('Image URL:', item.image_url, 'Converted:', convertedUrl);
+              return (
+                <Card key={item.id}>
+                  <CardHeader>
+                    <CardTitle>Waste Item #{item.id}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-col md:flex-row gap-4 items-center">
+                      <img
+                        src={convertedUrl}
+                        alt={item.description}
+                        className="w-32 h-32 object-cover rounded border"
+                        onError={e => (e.currentTarget.src = 'https://via.placeholder.com/128?text=No+Image')}
+                      />
+                      <div className="flex-1">
+                        <p className="font-semibold">Description:</p>
+                        <p className="mb-2">{item.description}</p>
+                        <p className="text-sm text-gray-500">User ID: {item.user_id}</p>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
