@@ -18,6 +18,9 @@ def get_db():
 
 @router.post("/upload")
 def upload_waste(data: WasteUpload, db: Session = Depends(get_db)):
+    allowed_extensions = (".jpg", ".jpeg", ".png")
+    if not data.image_url.lower().endswith(allowed_extensions):
+        return {"error": "Wrong image type. Only .jpg, .jpeg, .png files are accepted."}
     waste = WasteItem(
         user_id=data.user_id,
         description=data.description,

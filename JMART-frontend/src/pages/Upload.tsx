@@ -64,6 +64,7 @@ const Upload = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fileTypeError, setFileTypeError] = useState<string | null>(null);
 
   // Cloudinary widget open function
   const openCloudinaryWidget = (callback: (url: string) => void) => {
@@ -85,8 +86,17 @@ const Upload = () => {
       },
       (error: any, result: any) => {
         if (!error && result && result.event === 'success') {
-          callback(result.info.secure_url);
-          setImagePreview(result.info.secure_url);
+          const url: string = result.info.secure_url;
+          // Validate file extension
+          if (!url.match(/\.(jpg|jpeg|png)$/i)) {
+            setFileTypeError('Wrong image type. Only .jpg, .jpeg, .png files are accepted.');
+            setImagePreview(null);
+            return;
+          } else {
+            setFileTypeError(null);
+          }
+          callback(url);
+          setImagePreview(url);
         }
       }
     );
@@ -142,6 +152,8 @@ const Upload = () => {
                 >
                   Upload Image
                 </Button>
+                <p className="text-xs text-gray-400 mt-1">Only .jpg, .jpeg, and .png formats are accepted.</p>
+                {fileTypeError && <p className="text-red-500 text-sm mt-1">{fileTypeError}</p>}
                 {errors.image_url && <p className="text-red-500 text-sm mt-1">{errors.image_url.message as string}</p>}
                 {imagePreview && (
                   <img src={imagePreview} alt="Preview" className="mt-2 max-h-48 rounded" />
