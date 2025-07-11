@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 
 class WasteUpload(BaseModel):
     user_id: int
@@ -17,6 +18,8 @@ class WasteItemOut(BaseModel):
     description: str
     image_url: str
     category: str
+    verified: Optional[bool] = None
+    predicted_category: Optional[str] = None
 
     class Config:
         orm_mode = True

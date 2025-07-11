@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
 from app.database import Base
 
 class WasteItem(Base):
@@ -8,3 +8,5 @@ class WasteItem(Base):
     description = Column(String)
     image_url = Column(String)
     category = Column(String)
+    verified = Column(Boolean, default=None)
+    predicted_category = Column(String, default=None)
