@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.schemas import WasteUpload, WasteItemOut
 from app.models.waste_item import WasteItem
-from typing import List
+from typing import List, Optional
 from fastapi import Response
 from pydantic import BaseModel
 import requests
@@ -12,6 +12,7 @@ from io import BytesIO
 import torch
 from torchvision import models, transforms
 import os
+import torch.nn.functional as F
 
 router = APIRouter()
 
@@ -23,26 +24,36 @@ def get_db():
     finally:
         db.close()
 
+class WasteUpload(BaseModel):
+    user_id: int
+    description: str
+    image_url: str
+    category: str
+    force_unverified: Optional[bool] = False
+
 @router.post("/upload")
 def upload_waste(data: WasteUpload, db: Session = Depends(get_db)):
     allowed_extensions = (".jpg", ".jpeg", ".png")
     if not data.image_url.lower().endswith(allowed_extensions):
         return {"error": "Wrong image type. Only .jpg, .jpeg, .png files are accepted."}
-    # Run AI verification
-    predicted_category = predict_image_from_url(data.image_url)
-    verified = (data.category.lower() == predicted_category.lower())
+    predicted_category, confidence, prob_dict = predict_image_from_url(data.image_url)
+    if data.force_unverified:
+        verified = False
+    else:
+        verified = (data.category.lower() == predicted_category.lower() and confidence >= 0.95)
     waste = WasteItem(
         user_id=data.user_id,
         description=data.description,
         image_url=data.image_url,
         category=data.category,
         verified=verified,
-        predicted_category=predicted_category
+        predicted_category=predicted_category,
+        ai_confidence=confidence
     )
     db.add(waste)
     db.commit()
     db.refresh(waste)
-    return {"msg": "Waste uploaded", "id": waste.id}
+    return {"msg": "Waste uploaded", "id": waste.id, "ai_confidence": confidence, "probabilities": prob_dict}
 
 @router.get("/listings", response_model=List[WasteItemOut])
 def get_waste_listings(db: Session = Depends(get_db)):
@@ -74,14 +85,19 @@ def predict_image_from_url(url):
     img_t = preprocess(img).unsqueeze(0)
     with torch.no_grad():
         output = model(img_t)
-        _, pred = torch.max(output, 1)
-    return class_names[pred.item()]
+        probs = F.softmax(output, dim=1)
+        conf, pred = torch.max(probs, 1)
+        # Get all class probabilities as a dict
+        prob_dict = {class_names[i]: float(probs[0, i].item()) for i in range(len(class_names))}
+    return class_names[pred.item()], float(conf.item()), prob_dict
 
 @router.post("/verify-category")
 async def verify_category(data: VerifyRequest):
-    predicted_category = predict_image_from_url(data.image_url)
+    predicted_category, confidence, prob_dict = predict_image_from_url(data.image_url)
     verified = (data.user_category.lower() == predicted_category.lower())
     return {
         "verified": verified,
-        "predicted_category": predicted_category
+        "predicted_category": predicted_category,
+        "confidence": confidence,
+        "probabilities": prob_dict
     }

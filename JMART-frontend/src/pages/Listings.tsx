@@ -8,6 +8,8 @@ interface WasteItem {
   user_id: number;
   description: string;
   image_url: string;
+  verified?: boolean;
+  predicted_category?: string;
 }
 
 const Listings = () => {
@@ -68,6 +70,16 @@ const Listings = () => {
                         <p className="font-semibold">Description:</p>
                         <p className="mb-2">{item.description}</p>
                         <p className="text-sm text-gray-500">User ID: {item.user_id}</p>
+                        <p className="text-sm mt-2">
+                          Verified: {item.verified ? (
+                            <span style={{color: 'green'}}>✔️</span>
+                          ) : (
+                            <span style={{color: 'red'}}>❌</span>
+                          )}
+                          {!item.verified && item.predicted_category && (
+                            <span className="text-gray-400 ml-2">(Model prediction: {item.predicted_category})</span>
+                          )}
+                        </p>
                       </div>
                     </div>
                   </CardContent>

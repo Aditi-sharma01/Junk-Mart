@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Float
 from app.database import Base
 
 class WasteItem(Base):
@@ -10,3 +10,4 @@ class WasteItem(Base):
     category = Column(String)
     verified = Column(Boolean, default=None)
     predicted_category = Column(String, default=None)
+    ai_confidence = Column(Float, default=None)

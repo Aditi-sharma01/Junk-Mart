@@ -23,13 +23,11 @@ const GOOGLE_CLIENT_ID = '446600028660-27po8kcln0j3idnkvn2mj62p4ml8rqh0.apps.goo
 const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive';
 
 const wasteCategories = [
-  'Plastic',
-  'Metal',
-  'Glass',
-  'Paper',
-  'Electronics',
-  'Organic',
-  'Other',
+  'glass',
+  'metal',
+  'organic',
+  'paper',
+  'plastic',
 ];
 
 // Load GIS script
@@ -65,6 +63,9 @@ const Upload = () => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileTypeError, setFileTypeError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [modalInfo, setModalInfo] = useState<{confidence: number, predicted: string, data: any} | null>(null);
+  const [forceUnverified, setForceUnverified] = useState(false);
 
   // Cloudinary widget open function
   const openCloudinaryWidget = (callback: (url: string) => void) => {
@@ -106,17 +107,46 @@ const Upload = () => {
     setError(null);
     setUploading(true);
     try {
-      // TODO: Replace with actual user_id logic
-      const user_id = 1;
-      // Send to backend
+      // 1. Verify category with backend using image URL
+      const verifyRes = await fetch('http://127.0.0.1:8000/api/verify-category', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_category: data.category,
+          image_url: data.image_url,
+        }),
+      });
+      const verifyData = await verifyRes.json();
+
+      let force_unverified = false;
+      if (!verifyData.verified) {
+        if (verifyData.confidence < 0.95) {
+          setModalInfo({
+            confidence: verifyData.confidence,
+            predicted: verifyData.predicted_category,
+            data
+          });
+          setShowModal(true);
+          setUploading(false);
+          return; // Wait for user to interact with modal
+        } else {
+          setError(`Model is confident this is: ${verifyData.predicted_category}. Please check your category.`);
+          setUploading(false);
+          return;
+        }
+      }
+
+      // 2. Proceed with the original upload if verified or forced
+      const user_id = 1; // TODO: Replace with actual user_id logic
       const response = await fetch('http://127.0.0.1:8000/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id,
           description: data.description,
-          image_url: data.image_url, // Now using Cloudinary URL
+          image_url: data.image_url,
           category: data.category,
+          force_unverified,
         }),
       });
       if (!response.ok) throw new Error('Failed to upload waste item');
@@ -128,6 +158,34 @@ const Upload = () => {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleModalConfirm = async () => {
+    if (!modalInfo) return;
+    setShowModal(false);
+    setUploading(true);
+    setForceUnverified(true);
+    const { data } = modalInfo;
+    const user_id = 1; // TODO: Replace with actual user_id logic
+    const response = await fetch('http://127.0.0.1:8000/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id,
+        description: data.description,
+        image_url: data.image_url,
+        category: data.category,
+        force_unverified: true,
+      }),
+    });
+    if (!response.ok) {
+      setError('Failed to upload waste item');
+    } else {
+      reset();
+      setImagePreview(null);
+      alert('Waste item uploaded successfully!');
+    }
+    setUploading(false);
   };
 
   return (
@@ -197,6 +255,33 @@ const Upload = () => {
           </CardContent>
         </Card>
       </div>
+      {/* Modal for AI low confidence and user override */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full text-center">
+            <h2 className="text-lg font-bold mb-2">AI is not confident</h2>
+            <p>
+              AI confidence: <b>{(modalInfo?.confidence * 100).toFixed(1)}%</b><br />
+              Model prediction: <b>{modalInfo?.predicted}</b>
+            </p>
+            <p className="mt-2">Do you want to proceed with your selected category anyway?</p>
+            <div className="flex justify-center gap-4 mt-4">
+              <button
+                className="px-4 py-2 bg-eco-primary text-white rounded hover:bg-eco-primary-dark"
+                onClick={handleModalConfirm}
+              >
+                Proceed
+              </button>
+              <button
+                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                onClick={() => setShowModal(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };
