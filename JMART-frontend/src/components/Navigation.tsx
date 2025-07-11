@@ -24,9 +24,9 @@ const Navigation = () => {
           {/* Logo */}
           <div className="flex items-center">
             <img 
-              src="/lovable-uploads/e2d33650-0008-4b96-ba7f-5c67ed7c5f93.png" 
+              src="/logo.png" 
               alt="Junk Mart Logo" 
-              className="h-12 w-auto"
+              className="h-40 w-auto"
             />
           </div>
 

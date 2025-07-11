@@ -134,7 +134,6 @@ const Upload = () => {
           <CardContent>
             <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
               <div>
-                <Label htmlFor="image_url">Image</Label>
                 <Button
                   type="button"
                   onClick={() => openCloudinaryWidget((url) => setValue('image_url', url))}
