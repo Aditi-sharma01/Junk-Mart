@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, engine
 from app.models import user, waste_item, group
 from app.api import waste, user  # Import your route handlers
+from app.otp import generate_otp, EMAIL_CONFIGURED
 
 # Create all tables
 Base.metadata.create_all(bind=engine)
@@ -26,3 +27,13 @@ app.include_router(user.router, prefix="/api", tags=["User"])
 @app.get("/")
 def read_root():
     return {"message": "JMART backend running!"}
+
+# Test OTP endpoint
+@app.get("/test-otp")
+def test_otp():
+    otp = generate_otp()
+    return {
+        "message": "OTP system is working",
+        "test_otp": otp,
+        "email_configured": EMAIL_CONFIGURED
+    }
