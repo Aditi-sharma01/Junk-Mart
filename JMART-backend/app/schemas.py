@@ -48,6 +48,8 @@ class WasteItemOut(BaseModel):
     verified: Optional[bool] = None
     predicted_category: Optional[str] = None
     ai_confidence: Optional[float] = None
+    sold: Optional[bool] = None
+    sold_at: Optional[str] = None
 
     class Config:
         orm_mode = True

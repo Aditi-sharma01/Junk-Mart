@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Float
 from app.database import Base
 
 class User(Base):
@@ -9,4 +9,4 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     password = Column(String)  # Add password column for authentication
     level = Column(String, default="Bronze")
-    tokens = Column(Integer, default=0)
+    tokens = Column(Float, default=0.0)

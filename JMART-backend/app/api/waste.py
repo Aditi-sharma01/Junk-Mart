@@ -14,6 +14,12 @@ from torchvision import models, transforms
 import os
 import torch.nn.functional as F
 from fastapi import HTTPException
+from app.models.user import User
+from fastapi import HTTPException
+from sqlalchemy import and_
+from app.models.transaction import Transaction
+from datetime import datetime
+from sqlalchemy import Boolean
 
 router = APIRouter()
 
@@ -43,7 +49,7 @@ def upload_waste(data: WasteUpload, db: Session = Depends(get_db)):
     if data.force_unverified:
         verified = False
     else:
-        verified = (data.category.lower() == predicted_category.lower() and confidence >= 0.95)
+        verified = (data.category.lower() == predicted_category.lower() and confidence >= 0.65)
     waste = WasteItem(
         user_id=data.user_id,
         username=data.username,
@@ -65,12 +71,19 @@ def get_waste_listings(user_id: Optional[int] = None, db: Session = Depends(get_
     if user_id is None:
         return []
     items = db.query(WasteItem).filter(WasteItem.user_id == user_id).all()
+    for item in items:
+        if hasattr(item, 'sold') and item.sold:
+            # Calculate profit for this item
+            profit = sum(
+                tx.tokens for tx in db.query(Transaction).filter(Transaction.seller_id == item.user_id, Transaction.category == item.category, Transaction.amount_kg > 0, Transaction.seller_id == item.user_id)
+            )
+            item.profit = profit
     return items
 
 @router.get("/marketplace-listings", response_model=List[WasteItemOut])
 def get_marketplace_listings(db: Session = Depends(get_db)):
     try:
-        items = db.query(WasteItem).all()
+        items = db.query(WasteItem).filter(WasteItem.sold == False).all()
         return items
     except Exception as e:
         print(f"Error in /marketplace-listings: {e}")
@@ -117,3 +130,79 @@ async def verify_category(data: VerifyRequest):
         "confidence": confidence,
         "probabilities": prob_dict
     }
+
+class BuyCategoryRequest(BaseModel):
+    buyer_id: int
+    category: str
+    quantity: float  # in kg
+
+@router.post("/buy-category")
+def buy_category(data: BuyCategoryRequest, db: Session = Depends(get_db)):
+    try:
+        items = db.query(WasteItem).filter(and_(WasteItem.category == data.category, WasteItem.verified == True, WasteItem.amount_kg > 0)).all()
+        if not items:
+            raise HTTPException(status_code=400, detail=f"No available {data.category} items to buy.")
+        total_available = sum(i.amount_kg for i in items)
+        if data.quantity > total_available:
+            raise HTTPException(status_code=400, detail=f"Not enough {data.category} available. Requested: {data.quantity}, Available: {total_available}")
+        tokens_to_deduct = float(data.quantity)
+        if tokens_to_deduct <= 0:
+            raise HTTPException(status_code=400, detail="You must buy at least 0.01 kg (0.01 token). Please enter a valid quantity.")
+        buyer = db.query(User).filter(User.id == data.buyer_id).first()
+        if not buyer:
+            raise HTTPException(status_code=404, detail="Buyer not found. Please log in again.")
+        if buyer.tokens < tokens_to_deduct:
+            raise HTTPException(status_code=400, detail=f"You do not have enough tokens. You have {buyer.tokens}, but need {tokens_to_deduct}.")
+        print(f"[DEBUG] Buyer before: id={buyer.id}, tokens={buyer.tokens}")
+        buyer.tokens -= tokens_to_deduct
+        print(f"[DEBUG] Buyer after deduction: id={buyer.id}, tokens={buyer.tokens}")
+        sellers_paid = {}
+        qty_to_buy = data.quantity
+        tokens_remaining = tokens_to_deduct
+        shares = [(item, item.amount_kg / total_available) for item in items]
+        for idx, (item, share) in enumerate(shares):
+            seller = db.query(User).filter(User.id == item.user_id).first()
+            if not seller:
+                continue
+            # Distribute float tokens to sellers
+            if idx == len(shares) - 1:
+                tokens_for_seller = tokens_remaining  # last seller gets the remainder
+                take_qty = min(item.amount_kg, qty_to_buy)
+            else:
+                tokens_for_seller = share * data.quantity  # float value
+                tokens_for_seller = min(tokens_for_seller, tokens_remaining)
+                take_qty = min(item.amount_kg, qty_to_buy * share)
+            if tokens_for_seller <= 0:
+                continue
+            print(f"[DEBUG] Seller before: id={seller.id}, tokens={seller.tokens}")
+            sellers_paid.setdefault(seller.id, 0.0)
+            sellers_paid[seller.id] += tokens_for_seller
+            seller.tokens += tokens_for_seller
+            print(f"[DEBUG] Seller after: id={seller.id}, tokens={seller.tokens}, tokens_for_seller={tokens_for_seller}, take_qty={take_qty}")
+            item.amount_kg -= take_qty
+            if item.amount_kg <= 0:
+                item.sold = True
+                item.sold_at = datetime.utcnow()
+            tokens_remaining -= tokens_for_seller
+            db.add(Transaction(
+                buyer_id=data.buyer_id,
+                seller_id=seller.id,
+                category=data.category,
+                amount_kg=take_qty,
+                tokens=tokens_for_seller,
+                timestamp=datetime.utcnow()
+            ))
+            print(f"[DEBUG] Transaction: buyer_id={data.buyer_id}, seller_id={seller.id}, category={data.category}, amount_kg={take_qty}, tokens={tokens_for_seller}")
+        db.commit()
+        print(f"[DEBUG] Buyer final: id={buyer.id}, tokens={buyer.tokens}")
+        return {
+            "msg": f"Purchased {tokens_to_deduct} kg of {data.category}",
+            "tokens_deducted": tokens_to_deduct,
+            "sellers_paid": sellers_paid,
+            "buyer_new_balance": buyer.tokens
+        }
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        print(f"[ERROR] Unexpected error in buy_category: {e}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again later.")

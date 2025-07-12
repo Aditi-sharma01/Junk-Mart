@@ -7,6 +7,10 @@ from app.models.user import User
 from app.auth import get_password_hash, verify_password, create_access_token
 from app.otp import generate_otp, store_otp, verify_otp, send_otp_email
 from datetime import timedelta
+from app.models.transaction import Transaction
+from typing import List
+from datetime import datetime
+from fastapi import Query
 
 router = APIRouter()
 
@@ -157,7 +161,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/buy-tokens")
 def buy_tokens(data: BuyTokensRequest, db: Session = Depends(get_db)):
-    tokens_to_add = int(data.rupees / TOKEN_PRICE)
+    tokens_to_add = float(data.rupees) / TOKEN_PRICE
     user = db.query(User).filter(User.id == data.user_id).first()
     if not user:
         return {"error": "User not found"}
@@ -167,15 +171,16 @@ def buy_tokens(data: BuyTokensRequest, db: Session = Depends(get_db)):
 
 @router.post("/sell-tokens")
 def sell_tokens(data: SellTokensRequest, db: Session = Depends(get_db)):
+    tokens = float(data.tokens)
     user = db.query(User).filter(User.id == data.user_id).first()
     if not user:
         return {"error": "User not found"}
-    if user.tokens < data.tokens:
+    if user.tokens < tokens:
         return {"error": "Not enough tokens"}
-    payout = data.tokens * TOKEN_PRICE * (1 - SELL_FEE)
-    user.tokens -= data.tokens
+    payout = tokens * TOKEN_PRICE * (1 - SELL_FEE)
+    user.tokens -= tokens
     db.commit()
-    return {"tokens_sold": data.tokens, "payout": payout, "new_balance": user.tokens}
+    return {"tokens_sold": tokens, "payout": payout, "new_balance": user.tokens}
 
 @router.get("/token-balance")
 def token_balance(user_id: int, db: Session = Depends(get_db)):
@@ -183,3 +188,31 @@ def token_balance(user_id: int, db: Session = Depends(get_db)):
     if not user:
         return {"error": "User not found"}
     return {"token_balance": user.tokens} 
+
+@router.get("/transaction-history")
+def transaction_history(user_id: int, db: Session = Depends(get_db)):
+    # Fetch transactions where the user is buyer or seller
+    txs = db.query(Transaction).filter((Transaction.buyer_id == user_id) | (Transaction.seller_id == user_id)).order_by(Transaction.timestamp.desc()).all()
+    return [
+        {
+            "id": tx.id,
+            "buyer_id": tx.buyer_id,
+            "seller_id": tx.seller_id,
+            "category": tx.category,
+            "amount_kg": tx.amount_kg,
+            "tokens": tx.tokens,
+            "timestamp": tx.timestamp.isoformat()
+        }
+        for tx in txs
+    ] 
+
+@router.get("/debug/all-users")
+def debug_all_users(db: Session = Depends(get_db)):
+    users = db.query(User).all()
+    return [
+        {
+            "id": u.id,
+            "username": u.username,
+            "tokens": float(u.tokens)
+        } for u in users
+    ] 

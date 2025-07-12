@@ -7,6 +7,7 @@ import { Coins, Calculator, AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '../lib/auth';
 
 const TOKEN_PRICE = 10; // ₹10 per token
 const SELL_FEE = 0.04;   // 4% fee
@@ -23,11 +24,23 @@ const TokenShop = () => {
   const [isBuying, setIsBuying] = useState(false);
   const [isSelling, setIsSelling] = useState(false);
   const [isBuyingPack, setIsBuyingPack] = useState<number | null>(null);
-  const user_id = 1; // TODO: Replace with actual user id logic
+  const { user, refreshUser } = useAuth();
+  const [transactions, setTransactions] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchBalance();
+  }, [user?.id]); // Add user.id to dependency array
+
+  useEffect(() => {
+    if (!user) return;
+    fetch(`/api/transaction-history?user_id=${user.id}`)
+      .then(res => res.json())
+      .then(setTransactions);
+  }, [user]);
 
   const fetchBalance = async () => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/token-balance?user_id=${user_id}`);
+      const res = await fetch(`http://127.0.0.1:8000/api/token-balance?user_id=${user?.id}`);
       const data = await res.json();
       setBalance(data.token_balance);
       
@@ -38,10 +51,6 @@ const TokenShop = () => {
     }
   };
 
-  useEffect(() => {
-    fetchBalance();
-  }, []);
-
   const handleBuy = async () => {
     if (isBuying) return; // Prevent multiple clicks
     
@@ -51,18 +60,23 @@ const TokenShop = () => {
       setBuyResult('Enter a valid amount.');
       return;
     }
+    if (!user) {
+      setBuyResult('You must be logged in to buy tokens.');
+      return;
+    }
     
     setIsBuying(true);
     try {
       const res = await fetch('http://127.0.0.1:8000/api/buy-tokens', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, rupees }),
+        body: JSON.stringify({ user_id: user.id, rupees }),
       });
       const data = await res.json();
       if (data.tokens_added) {
         setBuyResult(`Bought ${data.tokens_added} tokens for ₹${data.cost}.`);
         setBuyAmount(''); // Clear input after successful purchase
+        if (refreshUser) await refreshUser();
         await fetchBalance(); // Update balance immediately
         toast({ title: 'Success', description: 'Tokens added successfully!' });
       } else {
@@ -118,7 +132,7 @@ const TokenShop = () => {
       const res = await fetch('http://127.0.0.1:8000/api/sell-tokens', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, tokens }),
+        body: JSON.stringify({ user_id: user?.id, tokens }),
       });
       const data = await res.json();
       if (data.tokens_sold) {
@@ -153,15 +167,22 @@ const TokenShop = () => {
     setBuyResult('');
     setIsBuyingPack(pack.tokens);
     
+    if (!user) {
+      setBuyResult('You must be logged in to buy tokens.');
+      setIsBuyingPack(null);
+      return;
+    }
+
     try {
       const res = await fetch('http://127.0.0.1:8000/api/buy-tokens', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, rupees: pack.price }),
+        body: JSON.stringify({ user_id: user.id, rupees: pack.price }),
       });
       const data = await res.json();
       if (data.tokens_added) {
         setBuyResult(`Purchased ${data.tokens_added} tokens for ₹${data.cost}!`);
+        if (refreshUser) await refreshUser();
         await fetchBalance(); // Update balance immediately
         toast({ title: 'Success', description: 'Tokens added successfully!' });
       } else {
@@ -273,6 +294,40 @@ const TokenShop = () => {
             {buyResult && <div className="mt-2 text-green-600 font-semibold text-center">{buyResult}</div>}
           </CardContent>
         </Card>
+        {/* Transaction History Section */}
+        {user && (
+          <Card className="mb-8 shadow-md">
+            <CardHeader>
+              <CardTitle>Transaction History</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col md:flex-row gap-8">
+                <div className="flex-1">
+                  <h3 className="font-semibold mb-2 text-green-700">Incoming (Sales)</h3>
+                  <ul className="divide-y divide-gray-200">
+                    {transactions.filter(tx => tx.seller_id === user.id).length === 0 && <li className="text-gray-400">No incoming transactions.</li>}
+                    {transactions.filter(tx => tx.seller_id === user.id).map(tx => (
+                      <li key={tx.id} className="py-2">
+                        <span className="font-bold">+{tx.tokens.toFixed(2)} tokens</span> for {tx.amount_kg.toFixed(2)} kg {tx.category} <span className="text-xs text-gray-400">({new Date(tx.timestamp).toLocaleString()})</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold mb-2 text-amber-700">Outgoing (Purchases)</h3>
+                  <ul className="divide-y divide-gray-200">
+                    {transactions.filter(tx => tx.buyer_id === user.id).length === 0 && <li className="text-gray-400">No outgoing transactions.</li>}
+                    {transactions.filter(tx => tx.buyer_id === user.id).map(tx => (
+                      <li key={tx.id} className="py-2">
+                        <span className="font-bold">-{tx.tokens.toFixed(2)} tokens</span> for {tx.amount_kg.toFixed(2)} kg {tx.category} <span className="text-xs text-gray-400">({new Date(tx.timestamp).toLocaleString()})</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         {/* Sell Tokens */}
         <Card className="shadow-md">
           <CardHeader>

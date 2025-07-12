@@ -13,6 +13,7 @@ interface AuthContextType {
   token: string | null;
   login: (user: User, token: string) => void;
   logout: () => void;
+  refreshUser?: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,8 +45,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem("token");
   };
 
+  const refreshUser = async () => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/token-balance?user_id=${user.id}`);
+      const data = await res.json();
+      if (typeof data.token_balance === 'number') {
+        const updatedUser = { ...user, tokens: data.token_balance };
+        setUser(updatedUser);
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

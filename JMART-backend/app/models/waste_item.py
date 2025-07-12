@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Float
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Float, DateTime
 from app.database import Base
+from datetime import datetime
 
 class WasteItem(Base):
     __tablename__ = "waste_items"
@@ -13,3 +14,5 @@ class WasteItem(Base):
     predicted_category = Column(String, default=None)
     ai_confidence = Column(Float, default=None)
     amount_kg = Column(Float, default=1.0)
+    sold = Column(Boolean, default=False)
+    sold_at = Column(DateTime, nullable=True)

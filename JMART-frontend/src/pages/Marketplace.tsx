@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '../lib/auth';
 
 interface WasteItem {
   id: number;
@@ -50,8 +51,10 @@ const Marketplace = () => {
     fetchItems();
   }, []);
 
+  // Only include verified items
+  const verifiedItems = items.filter(item => item.verified);
   // Group items by category
-  const grouped = items.reduce((acc, item) => {
+  const grouped = verifiedItems.reduce((acc, item) => {
     if (!acc[item.category]) acc[item.category] = [];
     acc[item.category].push(item);
     return acc;
@@ -68,6 +71,19 @@ const Marketplace = () => {
   };
   const closeDetails = () => setShowDetails(false);
 
+  const [buyModal, setBuyModal] = useState<{open: boolean, item: any | null}>({open: false, item: null});
+  const [buyQty, setBuyQty] = useState(1);
+  const [buyError, setBuyError] = useState<string | null>(null);
+  const [buyLoading, setBuyLoading] = useState(false);
+
+  const { user, refreshUser } = useAuth();
+
+  useEffect(() => {
+    if (!user && buyModal.open) {
+      setBuyModal({ open: false, item: null });
+    }
+  }, [user, buyModal.open]);
+
   return (
     <Layout>
       <div className="max-w-6xl mx-auto animate-fade-in">
@@ -79,8 +95,10 @@ const Marketplace = () => {
           <div className="text-center py-16">Loading...</div>
         ) : error ? (
           <div className="text-center py-16 text-red-500">{error}</div>
+        ) : items.length === 0 ? (
+          <div className="text-center py-16">No data</div>
         ) : categories.length === 0 ? (
-          <div className="text-center py-16">No waste items found.</div>
+          <div className="text-center py-16">No data</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {categories.map(cat => {
@@ -153,6 +171,86 @@ const Marketplace = () => {
                   ))}
                 </ul>
               </div>
+              {/* Category Buy Button */}
+              <div className="mt-6 flex justify-center">
+                <button
+                  className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded font-bold"
+                  onClick={() => {
+                    setBuyModal({open: true, item: { category: detailsCategory, totalAmount: grouped[detailsCategory].reduce((sum, i) => sum + (i.amount_kg || 0), 0) }});
+                    setBuyQty(1);
+                    setBuyError(null);
+                  }}
+                >
+                  Buy {detailsCategory}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Buy Modal for Category */}
+        {buyModal.open && buyModal.item && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
+            <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full text-center relative">
+              <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700" onClick={() => setBuyModal({open: false, item: null})}>&times;</button>
+              <h2 className="text-xl font-bold mb-2">Buy {buyModal.item.category}</h2>
+              <img
+                src={categoryImages[buyModal.item.category] || '/placeholder.svg'}
+                alt={buyModal.item.category}
+                className="w-24 h-24 object-cover rounded mx-auto mb-4 border bg-white"
+                onError={e => (e.currentTarget.src = '/placeholder.svg')}
+              />
+              <div className="mb-2">Available: <b>{buyModal.item.totalAmount.toFixed(2)} kg</b></div>
+              <div className="mb-2">Price: <b>1 token/kg</b></div>
+              <div className="mb-4">
+                <label htmlFor="buy-qty" className="block mb-1 font-medium">Quantity (kg):</label>
+                <input
+                  id="buy-qty"
+                  type="number"
+                  min={1}
+                  max={buyModal.item.totalAmount}
+                  value={buyQty}
+                  onChange={e => setBuyQty(Math.max(1, Math.min(Number(e.target.value), buyModal.item.totalAmount)))}
+                  className="border rounded px-2 py-1 w-24 text-center"
+                />
+              </div>
+              {buyError && <div className="text-red-500 mb-2">{buyError}</div>}
+              <button
+                className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded font-bold disabled:opacity-50"
+                disabled={buyLoading}
+                onClick={async () => {
+                  setBuyLoading(true);
+                  setBuyError(null);
+                  if (!user) {
+                    setBuyError('You must be logged in to buy.');
+                    setBuyLoading(false);
+                    return;
+                  }
+                  try {
+                    const res = await fetch('http://127.0.0.1:8000/api/buy-category', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        buyer_id: user.id,
+                        category: buyModal.item.category,
+                        quantity: buyQty
+                      })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || data.error || 'Purchase failed');
+                    setBuyModal({open: false, item: null});
+                    alert(`Purchase successful!\n${data.msg}`);
+                    if (refreshUser) await refreshUser();
+                    window.location.reload(); // Refresh to update marketplace
+                  } catch (err: any) {
+                    setBuyError(err.message || 'Purchase failed');
+                  } finally {
+                    setBuyLoading(false);
+                  }
+                }}
+              >
+                {buyLoading ? 'Processing...' : `Buy for ${buyQty} token${buyQty > 1 ? 's' : ''}`}
+              </button>
             </div>
           </div>
         )}

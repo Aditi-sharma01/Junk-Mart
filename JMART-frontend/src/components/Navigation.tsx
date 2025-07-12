@@ -9,52 +9,12 @@ import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import md5 from 'blueimp-md5';
 
 export default function Navigation() {
-  const [tokenBalance, setTokenBalance] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
 
   // Debug logging
   console.log('Navigation - User state:', user);
   console.log('Navigation - localStorage user:', localStorage.getItem('user'));
   console.log('Navigation - localStorage token:', localStorage.getItem('token'));
-
-  const fetchTokenBalance = async () => {
-    try {
-      // Dummy user_id=1
-      const res = await fetch('http://127.0.0.1:8000/api/token-balance?user_id=1');
-      const data = await res.json();
-      setTokenBalance(data.token_balance || 0);
-    } catch (error) {
-      console.error('Failed to fetch token balance:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTokenBalance();
-    
-    // Set up interval to refresh balance every 30 seconds
-    const interval = setInterval(fetchTokenBalance, 30000);
-    
-    // Cleanup interval on component unmount
-    return () => clearInterval(interval);
-  }, []);
-
-  // Listen for custom events to update balance immediately after transactions
-  useEffect(() => {
-    const handleBalanceUpdate = () => {
-      fetchTokenBalance();
-    };
-
-    window.addEventListener('tokenBalanceUpdated', handleBalanceUpdate);
-    
-    return () => {
-      window.removeEventListener('tokenBalanceUpdated', handleBalanceUpdate);
-    };
-  }, []);
-
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navItems = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -64,6 +24,8 @@ export default function Navigation() {
     { name: 'DIY Ideas', href: '/diy', icon: Book },
     { name: 'Token Shop', href: '/token-shop', icon: Store, showToken: true },
   ];
+
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -99,7 +61,7 @@ export default function Navigation() {
                   <span>{item.name}</span>
                   {item.showToken && (
                     <span className="ml-2 px-2 py-1 bg-eco-primary text-white rounded text-xs">
-                      {isLoading ? '...' : `${tokenBalance} tokens`}
+                      {user ? `${user.tokens} tokens` : '0 tokens'}
                     </span>
                   )}
                 </NavLink>
@@ -171,7 +133,7 @@ export default function Navigation() {
                     <span>{item.name}</span>
                     {item.showToken && (
                       <span className="ml-auto px-2 py-1 bg-eco-primary text-white rounded text-xs">
-                        {isLoading ? '...' : `${tokenBalance} tokens`}
+                        {user ? `${user.tokens} tokens` : '0 tokens'}
                       </span>
                     )}
                   </NavLink>
