@@ -3,10 +3,20 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { LayoutDashboard, Upload, Store, List, Book, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import LogoutButton from './LogoutButton';
+import { useAuth } from '../lib/auth';
+import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
+import md5 from 'blueimp-md5';
 
 export default function Navigation() {
   const [tokenBalance, setTokenBalance] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
+
+  // Debug logging
+  console.log('Navigation - User state:', user);
+  console.log('Navigation - localStorage user:', localStorage.getItem('user'));
+  console.log('Navigation - localStorage token:', localStorage.getItem('token'));
 
   const fetchTokenBalance = async () => {
     try {
@@ -62,7 +72,7 @@ export default function Navigation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <div className="flex items-center">
+          <div className="flex items-center space-x-4">
             <img 
               src="/logo.png" 
               alt="Junk Mart Logo" 
@@ -71,7 +81,7 @@ export default function Navigation() {
           </div>
 
           {/* Desktop Navigation */}
-          <ul className="hidden md:flex items-center space-x-1 list-none m-0 p-0">
+          <ul className="hidden md:flex items-center space-x-1 list-none m-0 p-0 flex-1 justify-center">
             {navItems.map((item) => (
               <li key={item.name} className="m-0 p-0">
                 <NavLink
@@ -95,10 +105,39 @@ export default function Navigation() {
                 </NavLink>
               </li>
             ))}
+            {user && (
+              <li className="m-0 p-0">
+                <LogoutButton />
+              </li>
+            )}
           </ul>
 
+          {/* User Avatar & Name on the right */}
+          <div className="flex items-center space-x-2 ml-4">
+            <Avatar className="h-10 w-10 border-2 border-gray-300 bg-blue-100">
+              {user ? (
+                <>
+                  <AvatarImage
+                    src={`https://www.gravatar.com/avatar/${md5(user.email.trim().toLowerCase())}?d=identicon&s=64`}
+                    alt={user.username}
+                  />
+                  <AvatarFallback className="bg-blue-500 text-white text-sm font-bold">
+                    {user.username[0]?.toUpperCase() || '?'}
+                  </AvatarFallback>
+                </>
+              ) : (
+                <AvatarFallback className="bg-gray-400 text-white text-sm font-bold">
+                  ?
+                </AvatarFallback>
+              )}
+            </Avatar>
+            <span className="text-sm font-medium text-gray-700 hidden sm:block">
+              {user ? user.username : 'Guest'}
+            </span>
+          </div>
+
           {/* Mobile menu button */}
-          <div className="md:hidden">
+          <div className="md:hidden ml-2">
             <Button
               variant="ghost"
               size="sm"
@@ -138,6 +177,11 @@ export default function Navigation() {
                   </NavLink>
                 </li>
               ))}
+              {user && (
+                <li className="m-0 p-0">
+                  <LogoutButton />
+                </li>
+              )}
             </ul>
           </div>
         )}

@@ -32,8 +32,24 @@ const InputOTPSlot = React.forwardRef<
   React.ElementRef<"div">,
   React.ComponentPropsWithoutRef<"div"> & { index: number }
 >(({ index, className, ...props }, ref) => {
-  const inputOTPContext = React.useContext(OTPInputContext)
-  const { char, hasFakeCaret, isActive } = inputOTPContext.slots[index]
+  const inputOTPContext = React.useContext(OTPInputContext);
+  const slot = inputOTPContext?.slots?.[index];
+
+  if (!slot) {
+    // Render an empty slot or fallback UI
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          "relative flex h-10 w-10 items-center justify-center border-y border-r border-input text-sm transition-all first:rounded-l-md first:border-l last:rounded-r-md",
+          className
+        )}
+        {...props}
+      />
+    );
+  }
+
+  const { char, hasFakeCaret, isActive } = slot;
 
   return (
     <div
@@ -52,8 +68,8 @@ const InputOTPSlot = React.forwardRef<
         </div>
       )}
     </div>
-  )
-})
+  );
+});
 InputOTPSlot.displayName = "InputOTPSlot"
 
 const InputOTPSeparator = React.forwardRef<
