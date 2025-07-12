@@ -71,9 +71,9 @@ export default function Navigation() {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
+          <ul className="hidden md:flex items-center space-x-1 list-none m-0 p-0">
             {navItems.map((item) => (
-              <li key={item.name}>
+              <li key={item.name} className="m-0 p-0">
                 <NavLink
                   key={item.name}
                   to={item.href}
@@ -95,7 +95,7 @@ export default function Navigation() {
                 </NavLink>
               </li>
             ))}
-          </div>
+          </ul>
 
           {/* Mobile menu button */}
           <div className="md:hidden">
@@ -113,30 +113,32 @@ export default function Navigation() {
         {/* Mobile Navigation */}
         {isMenuOpen && (
           <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1">
+            <ul className="px-2 pt-2 pb-3 space-y-1 list-none m-0 p-0">
               {navItems.map((item) => (
-                <NavLink
-                  key={item.name}
-                  to={item.href}
-                  className={({ isActive }) =>
-                    `flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium ${
-                      isActive
-                        ? 'bg-eco-primary text-white'
-                        : 'text-gray-700 hover:bg-eco-light hover:text-eco-primary-dark'
-                    }`
-                  }
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <item.icon size={20} />
-                  <span>{item.name}</span>
-                  {item.showToken && (
-                    <span className="ml-auto px-2 py-1 bg-eco-primary text-white rounded text-xs">
-                      {isLoading ? '...' : `${tokenBalance} tokens`}
-                    </span>
-                  )}
-                </NavLink>
+                <li key={item.name} className="m-0 p-0">
+                  <NavLink
+                    key={item.name}
+                    to={item.href}
+                    className={({ isActive }) =>
+                      `flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium ${
+                        isActive
+                          ? 'bg-eco-primary text-white'
+                          : 'text-gray-700 hover:bg-eco-light hover:text-eco-primary-dark'
+                      }`
+                    }
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <item.icon size={20} />
+                    <span>{item.name}</span>
+                    {item.showToken && (
+                      <span className="ml-auto px-2 py-1 bg-eco-primary text-white rounded text-xs">
+                        {isLoading ? '...' : `${tokenBalance} tokens`}
+                      </span>
+                    )}
+                  </NavLink>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         )}
       </div>
