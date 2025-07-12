@@ -166,24 +166,24 @@ def buy_category(data: BuyCategoryRequest, db: Session = Depends(get_db)):
                 continue
             # Distribute float tokens to sellers
             if idx == len(shares) - 1:
-                tokens_for_seller = tokens_remaining  # last seller gets the remainder
-                take_qty = min(item.amount_kg, qty_to_buy)
+                # Last seller gets the remainder to ensure total matches exactly
+                take_qty = qty_to_buy
+                tokens_for_seller = tokens_remaining
             else:
-                tokens_for_seller = share * data.quantity  # float value
+                tokens_for_seller = round(share * data.quantity, 6)  # use more precision
                 tokens_for_seller = min(tokens_for_seller, tokens_remaining)
-                take_qty = min(item.amount_kg, qty_to_buy * share)
+                take_qty = min(item.amount_kg, tokens_for_seller)
             if tokens_for_seller <= 0:
                 continue
-            print(f"[DEBUG] Seller before: id={seller.id}, tokens={seller.tokens}")
             sellers_paid.setdefault(seller.id, 0.0)
             sellers_paid[seller.id] += tokens_for_seller
             seller.tokens += tokens_for_seller
-            print(f"[DEBUG] Seller after: id={seller.id}, tokens={seller.tokens}, tokens_for_seller={tokens_for_seller}, take_qty={take_qty}")
             item.amount_kg -= take_qty
             if item.amount_kg <= 0:
                 item.sold = True
                 item.sold_at = datetime.utcnow()
             tokens_remaining -= tokens_for_seller
+            qty_to_buy -= take_qty
             db.add(Transaction(
                 buyer_id=data.buyer_id,
                 seller_id=seller.id,
@@ -192,7 +192,6 @@ def buy_category(data: BuyCategoryRequest, db: Session = Depends(get_db)):
                 tokens=tokens_for_seller,
                 timestamp=datetime.utcnow()
             ))
-            print(f"[DEBUG] Transaction: buyer_id={data.buyer_id}, seller_id={seller.id}, category={data.category}, amount_kg={take_qty}, tokens={tokens_for_seller}")
         db.commit()
         print(f"[DEBUG] Buyer final: id={buyer.id}, tokens={buyer.tokens}")
         return {
