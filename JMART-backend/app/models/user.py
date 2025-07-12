@@ -8,3 +8,4 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     level = Column(String, default="Bronze")
+    tokens = Column(Integer, default=0)

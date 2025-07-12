@@ -10,6 +10,7 @@ import Marketplace from "./pages/Marketplace";
 import Listings from "./pages/Listings";
 import DIY from "./pages/DIY";
 import NotFound from "./pages/NotFound";
+import TokenShop from "./pages/TokenShop";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/listings" element={<Listings />} />
           <Route path="/diy" element={<DIY />} />
+          <Route path="/token-shop" element={<TokenShop />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
