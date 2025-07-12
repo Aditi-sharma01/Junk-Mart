@@ -9,35 +9,35 @@ const categories = [
 const mockItems = [
   {
     id: 1,
-    name: 'Used Plastic Bottles',
+    name: 'Plastic',
     category: 'Plastic',
     location: 'Delhi, India',
     price: '₹20/kg',
-    image: 'https://via.placeholder.com/128?text=Plastic',
+    image: '/plastic.jpeg', // Updated image path
   },
   {
     id: 2,
-    name: 'Old Iron Rods',
-    category: 'Iron',
+    name: 'Metal',
+    category: 'Metal',
     location: 'Mumbai, India',
     price: '₹15/kg',
-    image: 'https://via.placeholder.com/128?text=Iron',
+    image: '/iron.jpeg',
   },
   {
     id: 3,
-    name: 'Waste Paper Sheets',
+    name: 'Paper',
     category: 'Paper',
     location: 'Bangalore, India',
     price: '₹10/kg',
-    image: 'https://via.placeholder.com/128?text=Paper',
+    image: '/paper.jpeg',
   },
   {
     id: 4,
-    name: 'Broken Glass Jars',
+    name: 'Glass',
     category: 'Glass',
     location: 'Chennai, India',
     price: '₹12/kg',
-    image: 'https://via.placeholder.com/128?text=Glass',
+    image: '/glass.jpeg',
   },
   {
     id: 5,
@@ -45,15 +45,15 @@ const mockItems = [
     category: 'E-Waste',
     location: 'Hyderabad, India',
     price: '₹50/kg',
-    image: 'https://via.placeholder.com/128?text=E-Waste',
+    image: '/circuit.jpeg',
   },
   {
     id: 6,
-    name: 'Old Fabric Scraps',
+    name: 'Fabric scraps',
     category: 'Fabric',
     location: 'Pune, India',
     price: '₹8/kg',
-    image: 'https://via.placeholder.com/128?text=Fabric',
+    image: '/fabric.jpeg',
   },
   {
     id: 7,
@@ -61,7 +61,7 @@ const mockItems = [
     category: 'Organic',
     location: 'Kolkata, India',
     price: '₹5/kg',
-    image: 'https://via.placeholder.com/128?text=Organic',
+    image: '/organic.jpeg',
   },
 ];
 
@@ -108,8 +108,8 @@ const Marketplace = () => {
                 <img
                   src={item.image}
                   alt={item.name}
-                  className="w-32 h-32 object-cover rounded mb-4 border"
-                  onError={e => (e.currentTarget.src = 'https://via.placeholder.com/128?text=No+Image')}
+                  className="w-32 h-32 object-cover rounded mb-4 border bg-white"
+                  onError={e => (e.currentTarget.src = '/placeholder.svg')}
                 />
                 <div className="w-full flex flex-col items-center mb-2">
                   <span className="text-lg font-semibold text-gray-900 text-center">{item.name}</span>
