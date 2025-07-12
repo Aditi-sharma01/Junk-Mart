@@ -3,9 +3,11 @@ from typing import Optional
 
 class WasteUpload(BaseModel):
     user_id: int
+    username: str
     description: str
     image_url: str
     category: str
+    amount_kg: float
 
 class UserCreate(BaseModel):
     username: str
@@ -38,11 +40,14 @@ class UserResponse(BaseModel):
 class WasteItemOut(BaseModel):
     id: int
     user_id: int
+    username: Optional[str] = None
     description: str
     image_url: str
     category: str
+    amount_kg: float
     verified: Optional[bool] = None
     predicted_category: Optional[str] = None
+    ai_confidence: Optional[float] = None
 
     class Config:
         orm_mode = True

@@ -8,7 +8,7 @@ import { toast } from '@/components/ui/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 
-const TOKEN_PRICE = 0.5; // $0.50 per token
+const TOKEN_PRICE = 10; // ₹10 per token
 const SELL_FEE = 0.04;   // 4% fee
 
 const TokenShop = () => {
@@ -46,8 +46,8 @@ const TokenShop = () => {
     if (isBuying) return; // Prevent multiple clicks
     
     setBuyResult('');
-    const dollars = parseFloat(buyAmount);
-    if (isNaN(dollars) || dollars <= 0) {
+    const rupees = parseFloat(buyAmount);
+    if (isNaN(rupees) || rupees <= 0) {
       setBuyResult('Enter a valid amount.');
       return;
     }
@@ -57,11 +57,11 @@ const TokenShop = () => {
       const res = await fetch('http://127.0.0.1:8000/api/buy-tokens', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, dollars }),
+        body: JSON.stringify({ user_id, rupees }),
       });
       const data = await res.json();
       if (data.tokens_added) {
-        setBuyResult(`Bought ${data.tokens_added} tokens for $${data.cost.toFixed(2)}.`);
+        setBuyResult(`Bought ${data.tokens_added} tokens for ₹${data.cost}.`);
         setBuyAmount(''); // Clear input after successful purchase
         await fetchBalance(); // Update balance immediately
         toast({ title: 'Success', description: 'Tokens added successfully!' });
@@ -122,7 +122,7 @@ const TokenShop = () => {
       });
       const data = await res.json();
       if (data.tokens_sold) {
-        setSellResult(`Sold ${data.tokens_sold} tokens for $${data.payout.toFixed(2)} (after fee).`);
+        setSellResult(`Sold ${data.tokens_sold} tokens for ₹${data.payout.toFixed(2)} (after fee).`);
         setSellAmount(''); // Clear input after successful sale
         setAgreeToTerms(false);
         setShowSellModal(false);
@@ -141,10 +141,10 @@ const TokenShop = () => {
   };
 
   const tokenPacks = [
-    { tokens: 10, price: 5 },
-    { tokens: 25, price: 12 },
-    { tokens: 50, price: 24 },
-    { tokens: 100, price: 48 },
+    { tokens: 10, price: 100 },
+    { tokens: 25, price: 250 },
+    { tokens: 50, price: 500 },
+    { tokens: 100, price: 1000 },
   ];
 
   const handleBuyPack = async (pack: { tokens: number, price: number }) => {
@@ -157,11 +157,11 @@ const TokenShop = () => {
       const res = await fetch('http://127.0.0.1:8000/api/buy-tokens', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, dollars: pack.price }),
+        body: JSON.stringify({ user_id, rupees: pack.price }),
       });
       const data = await res.json();
       if (data.tokens_added) {
-        setBuyResult(`Purchased ${data.tokens_added} tokens for $${data.cost.toFixed(2)}!`);
+        setBuyResult(`Purchased ${data.tokens_added} tokens for ₹${data.cost}!`);
         await fetchBalance(); // Update balance immediately
         toast({ title: 'Success', description: 'Tokens added successfully!' });
       } else {
@@ -216,7 +216,7 @@ const TokenShop = () => {
                   <div className="text-2xl font-bold mb-1 text-amber-600 flex items-center gap-1">
                     <Coins size={20} className="text-amber-400" /> {pack.tokens}
                   </div>
-                  <div className="mb-2 text-lg font-semibold text-gray-700">${pack.price.toFixed(2)}</div>
+                  <div className="mb-2 text-lg font-semibold text-gray-700">₹{pack.price}</div>
                   <Button 
                     onClick={() => handleBuyPack(pack)} 
                     disabled={isBuyingPack === pack.tokens}
@@ -243,13 +243,13 @@ const TokenShop = () => {
             <CardTitle>Buy Custom Amount</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="mb-2 text-gray-600">1 token = <span className="font-bold">$0.50</span></div>
+            <div className="mb-2 text-gray-600">1 token = <span className="font-bold">₹10</span></div>
             <div className="flex gap-2 items-center mb-2">
               <Input
                 type="number"
                 min="0"
                 step="0.01"
-                placeholder="Amount in dollars"
+                placeholder="Amount in rupees"
                 value={buyAmount}
                 onChange={e => setBuyAmount(e.target.value)}
                 className="w-40"
@@ -279,7 +279,7 @@ const TokenShop = () => {
             <CardTitle>Sell Tokens</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="mb-2 text-gray-600">Sell fee: <span className="font-bold">4%</span> (You get <span className="font-bold">$0.48</span> per token)</div>
+            <div className="mb-2 text-gray-600">Sell fee: <span className="font-bold">4%</span> (You get <span className="font-bold">₹9.60</span> per token)</div>
             <div className="flex gap-2 items-center mb-2">
               <Input
                 type="number"
@@ -320,16 +320,16 @@ const TokenShop = () => {
               </div>
               <div className="flex justify-between">
                 <span>Token value:</span>
-                <span className="font-semibold">${sellCalculation.tokenValue.toFixed(2)}</span>
+                <span className="font-semibold">₹{sellCalculation.tokenValue.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-red-600">
                 <span>Sell fee ({sellCalculation.feePercentage}%):</span>
-                <span className="font-semibold">-${sellCalculation.feeAmount.toFixed(2)}</span>
+                <span className="font-semibold">-₹{sellCalculation.feeAmount.toFixed(2)}</span>
               </div>
               <hr className="border-gray-300" />
               <div className="flex justify-between text-lg font-bold text-green-600">
                 <span>You will receive:</span>
-                <span>${sellCalculation.payout.toFixed(2)}</span>
+                <span>₹{sellCalculation.payout.toFixed(2)}</span>
               </div>
             </div>
 

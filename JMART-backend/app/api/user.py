@@ -10,7 +10,7 @@ from datetime import timedelta
 
 router = APIRouter()
 
-TOKEN_PRICE = 0.5  # $0.50 per token
+TOKEN_PRICE = 10  # ₹10 per token
 SELL_FEE = 0.04    # 4% fee
 
 def get_db():
@@ -22,7 +22,7 @@ def get_db():
 
 class BuyTokensRequest(BaseModel):
     user_id: int
-    dollars: float
+    rupees: float
 
 class SellTokensRequest(BaseModel):
     user_id: int
@@ -157,7 +157,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/buy-tokens")
 def buy_tokens(data: BuyTokensRequest, db: Session = Depends(get_db)):
-    tokens_to_add = int(data.dollars / TOKEN_PRICE)
+    tokens_to_add = int(data.rupees / TOKEN_PRICE)
     user = db.query(User).filter(User.id == data.user_id).first()
     if not user:
         return {"error": "User not found"}

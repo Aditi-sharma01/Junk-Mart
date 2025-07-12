@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getGoogleDriveImageSrc } from '../lib/utils';
+import { useAuth } from '../lib/auth';
 
 interface WasteItem {
   id: number;
@@ -10,6 +11,7 @@ interface WasteItem {
   image_url: string;
   verified?: boolean;
   predicted_category?: string;
+  username?: string; // Added username to the interface
 }
 
 const Listings = () => {
@@ -17,12 +19,18 @@ const Listings = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const { user } = useAuth();
   useEffect(() => {
+    if (!user) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
     const fetchListings = async () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch('http://127.0.0.1:8000/api/listings');
+        const res = await fetch(`http://127.0.0.1:8000/api/listings?user_id=${user.id}`);
         if (!res.ok) throw new Error('Failed to fetch listings');
         const data = await res.json();
         setItems(data);
@@ -33,7 +41,7 @@ const Listings = () => {
       }
     };
     fetchListings();
-  }, []);
+  }, [user]);
 
   return (
     <Layout>
@@ -69,7 +77,7 @@ const Listings = () => {
                       <div className="flex-1">
                         <p className="font-semibold">Description:</p>
                         <p className="mb-2">{item.description}</p>
-                        <p className="text-sm text-gray-500">User ID: {item.user_id}</p>
+                        <p className="text-sm text-gray-500">Username: {item.username}</p>
                         <p className="text-sm mt-2">
                           Verified: {item.verified ? (
                             <span style={{color: 'green'}}>✔️</span>

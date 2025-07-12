@@ -13,6 +13,7 @@ import torch
 from torchvision import models, transforms
 import os
 import torch.nn.functional as F
+from fastapi import HTTPException
 
 router = APIRouter()
 
@@ -26,10 +27,12 @@ def get_db():
 
 class WasteUpload(BaseModel):
     user_id: int
+    username: str
     description: str
     image_url: str
     category: str
     force_unverified: Optional[bool] = False
+    amount_kg: Optional[float] = None
 
 @router.post("/upload")
 def upload_waste(data: WasteUpload, db: Session = Depends(get_db)):
@@ -43,12 +46,14 @@ def upload_waste(data: WasteUpload, db: Session = Depends(get_db)):
         verified = (data.category.lower() == predicted_category.lower() and confidence >= 0.95)
     waste = WasteItem(
         user_id=data.user_id,
+        username=data.username,
         description=data.description,
         image_url=data.image_url,
         category=data.category,
         verified=verified,
         predicted_category=predicted_category,
-        ai_confidence=confidence
+        ai_confidence=confidence,
+        amount_kg=data.amount_kg
     )
     db.add(waste)
     db.commit()
@@ -56,9 +61,20 @@ def upload_waste(data: WasteUpload, db: Session = Depends(get_db)):
     return {"msg": "Waste uploaded", "id": waste.id, "ai_confidence": confidence, "probabilities": prob_dict}
 
 @router.get("/listings", response_model=List[WasteItemOut])
-def get_waste_listings(db: Session = Depends(get_db)):
-    items = db.query(WasteItem).all()
+def get_waste_listings(user_id: Optional[int] = None, db: Session = Depends(get_db)):
+    if user_id is None:
+        return []
+    items = db.query(WasteItem).filter(WasteItem.user_id == user_id).all()
     return items
+
+@router.get("/marketplace-listings", response_model=List[WasteItemOut])
+def get_marketplace_listings(db: Session = Depends(get_db)):
+    try:
+        items = db.query(WasteItem).all()
+        return items
+    except Exception as e:
+        print(f"Error in /marketplace-listings: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
 
 class VerifyRequest(BaseModel):
     user_category: str

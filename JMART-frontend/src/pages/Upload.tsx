@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useForm, Controller } from 'react-hook-form';
+import { useAuth } from '../lib/auth';
 
 const GOOGLE_CLIENT_ID = '446600028660-27po8kcln0j3idnkvn2mj62p4ml8rqh0.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive';
@@ -58,6 +59,7 @@ const loadGapiScript = () => {
 };
 
 const Upload = () => {
+  const { user } = useAuth();
   const { register, handleSubmit, control, reset, setValue, formState: { errors } } = useForm();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -104,6 +106,10 @@ const Upload = () => {
   };
 
   const onSubmit = async (data: any) => {
+    if (!user) {
+      setError('You must be logged in to upload waste.');
+      return;
+    }
     setError(null);
     setUploading(true);
     try {
@@ -137,15 +143,16 @@ const Upload = () => {
       }
 
       // 2. Proceed with the original upload if verified or forced
-      const user_id = 1; // TODO: Replace with actual user_id logic
       const response = await fetch('http://127.0.0.1:8000/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id,
+          user_id: user.id,
+          username: user.username,
           description: data.description,
           image_url: data.image_url,
           category: data.category,
+          amount_kg: parseFloat(data.amount_kg),
           force_unverified,
         }),
       });
@@ -161,20 +168,21 @@ const Upload = () => {
   };
 
   const handleModalConfirm = async () => {
-    if (!modalInfo) return;
+    if (!modalInfo || !user) return;
     setShowModal(false);
     setUploading(true);
     setForceUnverified(true);
     const { data } = modalInfo;
-    const user_id = 1; // TODO: Replace with actual user_id logic
     const response = await fetch('http://127.0.0.1:8000/api/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        user_id,
+        user_id: user.id,
+        username: user.username,
         description: data.description,
         image_url: data.image_url,
         category: data.category,
+        amount_kg: Number(data.amount_kg),
         force_unverified: true,
       }),
     });
@@ -248,6 +256,20 @@ const Upload = () => {
                   )}
                 />
                 {errors.category && <p className="text-red-500 text-sm mt-1">{errors.category.message as string}</p>}
+              </div>
+              <div>
+                <Label htmlFor="amount_kg">Amount (kg)</Label>
+                <Input
+                  id="amount_kg"
+                  type="number"
+                  min={0.1}
+                  max={100}
+                  step={0.1}
+                  placeholder="Enter amount in kg (e.g. 1.2)"
+                  {...register('amount_kg', { required: 'Amount is required', min: 0.1 })}
+                  disabled={uploading}
+                />
+                {errors.amount_kg && <p className="text-red-500 text-sm mt-1">{errors.amount_kg.message as string}</p>}
               </div>
               <Button type="submit" className="w-full" disabled={uploading}>{uploading ? 'Uploading...' : 'Upload'}</Button>
               {error && <p className="text-red-500 text-center mt-2">{error}</p>}
